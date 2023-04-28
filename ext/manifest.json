@@ -2,10 +2,20 @@
 	"name": "nah",
 	"version": "1.0",
 	"manifest_version": 3,
-	"content_scripts" : [
+	"content_scripts": [
 		{
 			"matches": ["<all_urls>"],
-			"js": ["main.js"]
+			"js": ["nah.js"],
+			"css": ["styles.css"]
+		}
+	],
+	"web_accessible_resources": [
+		{
+			"resources": [
+				"smart.png",
+				"mic.png"
+			],
+			"matches": ["<all_urls>"]
 		}
 	]
 }
