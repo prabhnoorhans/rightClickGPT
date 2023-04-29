@@ -12,7 +12,7 @@
 	"web_accessible_resources": [
 		{
 			"resources": [
-				"smart.png",
+				"view.png",
 				"mic.png"
 			],
 			"matches": ["<all_urls>"]
