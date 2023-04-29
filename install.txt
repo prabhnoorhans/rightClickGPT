@@ -1,0 +1,5 @@
+apt update;
+apt install ffmpeg -y;
+pip install -r reqs.txt;
+apt install npm
+npm install -g sass
