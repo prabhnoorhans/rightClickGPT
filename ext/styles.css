@@ -38,6 +38,7 @@
 /* TODO: add chatBoxWrapper */
 #chatWrapper
 {
+	display: block;
 	position: fixed;
 	top: 60px;
 	right: 15px;
@@ -51,6 +52,7 @@
 	backdrop-filter: blur(8px);
 	-webkit-mask-image: paint(squircle);
 	--squircle-radius: var(--chatBoxSquircleRadius);
+	/* chatBoxBlur.style = "--squircle-smooth: .9"; */
 }
 
 #chatWrapper #chatBoxBorder {
@@ -87,16 +89,47 @@
 	font-size: 14px;
 }
 
+/* #chatWrapper #chatBoxContent .chatBubble  */
+
 #chatWrapper #chatBoxContent .userChat {
 	background-color: #00402E;
 	color: #00FFB9;
 	float: right;
 }
 
+#chatWrapper #chatBoxContent .userChat #ctxEl {
+	background-color: #00FFB9;
+	color: #00402E;
+}
+
 #chatWrapper #chatBoxContent .aiChat {
 	background-color: #0E3040;
 	color: #38BDFF;
 	float: left;
+}
+
+#chatWrapper #chatBoxContent .aiChat #ctxEl {
+	background-color: #38BDFF;
+	color: #0E3040;
+}
+
+#chatWrapper #chatBoxContent .chatBubble #ctxEl {
+	margin-top: 5px;
+	padding: 3px 5px;
+	--squircle-radius: 15px;
+	-webkit-mask-image: paint(squircle);
+	cursor: pointer;
+	width: 220px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+canvas {
+	--squircle-radius: 15px;
+	-webkit-mask-image: paint(squircle);
+	margin: 0;
+	float: right;
 }
 
 #selected {

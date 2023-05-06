@@ -1,48 +1,49 @@
+document.addEventListener("keydown", function(e) {
+	if (e.altKey && e.metaKey && e.code === "KeyX") {
+		chatWrapper.style.display == "block" ? chatWrapper.style.display = "none" : chatWrapper.style.display = "block";
+	}
+})
+
+let GBL_selectedCounter = 0;
+let GBL_aiActivated = false;
 let GBL_micActivated = false;
+let GBL_chatMessages= [];
 
 if ("paintWorklet" in CSS) {
-	CSS.paintWorklet.addModule(
-		"https://www.unpkg.com/css-houdini-squircle/squircle.min.js"
-	);
+	CSS.paintWorklet.addModule("https://www.unpkg.com/css-houdini-squircle/squircle.min.js");
 }
 
 // Contains the buttons and chatBox
 const chatWrapper = document.createElement("div");
 chatWrapper.setAttribute("id", "chatWrapper");
+// chatWrapper.style.display = "block";
 
 const chatBtnsWrapper = document.createElement("div");
 chatBtnsWrapper.setAttribute("id", "chatBtnsWrapper");
 
-
 // View Button
 const viewSquircle = document.createElement("div");
 viewSquircle.setAttribute("class", "squircleBtn viewBtn");
-
+viewSquircle.onclick = function() {
+	if (chatBoxWrapper.style.display == "block") {
+		chatBoxWrapper.style.display = "none";
+	} else {
+		chatBoxWrapper.style.display = "block";
+	}
+}
 const viewImg = document.createElement("img");
 viewImg.src = chrome.runtime.getURL("view.png");
-// viewImg.onclick = function() {
-// 	if (chatBox.style.display == "") {
-// 		chatBoxBlur.style.display = "none";
-// 		chatBox.style.display = "none";
-// 	} else {
-// 		chatBox.style.display = "";
-// 		chatBoxBlur.style.display = "none";
-// 	}
-// }
 viewSquircle.appendChild(viewImg);
 chatBtnsWrapper.appendChild(viewSquircle);
 
 // Mic Button
 const micSquircle = document.createElement("div");
 micSquircle.setAttribute("class", "squircleBtn micBtn");
-
+micSquircle.onclick = function() {
+	if (GBL_aiActivated != true) audio();
+}
 const micImg = document.createElement("img");
 micImg.src = chrome.runtime.getURL("mic.png");
-// // micImg.onclick = function() {
-// // 	if (micActivated != true) {
-// // 		audio("");
-// // 	}
-// // }
 micSquircle.appendChild(micImg);
 chatBtnsWrapper.appendChild(micSquircle);
 
@@ -50,13 +51,12 @@ chatWrapper.appendChild(chatBtnsWrapper);
 
 const chatBoxWrapper = document.createElement("div");
 chatBoxWrapper.setAttribute("id", "chatBoxWrapper");
-chatBoxWrapper.style.display = "none";
+// chatBoxWrapper.style.display = "none";
 
 // Blur Background
 const chatBoxBlur = document.createElement("div");
 chatBoxBlur.setAttribute("id", "chatBoxBlur");
 chatBoxWrapper.appendChild(chatBoxBlur);
-// chatBoxBlur.style = "--squircle-smooth: .9";
 
 // Border
 const chatBoxBorder = document.createElement("div");
@@ -71,107 +71,247 @@ chatWrapper.appendChild(chatBoxWrapper);
 
 document.body.appendChild(chatWrapper);
 
-function addMessage(text, from="user", createNew=false)
-{
-	if (createNew)
-	{
-		document.getElementById("chatBoxContent").innerHTML += "<div class='"+from+"Chat chatBubble'>"+text+"</div>";
+function FN_highlightContext(txt) {
+	const matches = document.querySelectorAll('[data-id]');
+	for (let i = 0; i < matches.length; i++) {
+		let temp = matches[i].getAttribute("data-id");
+		let keyTemp = temp.split('-');
+		if (keyTemp.find(e => e == txt)) {
+			if (document.getElementById("selected") != null) {
+				document.getElementById("selected").parentElement.innerHTML = document.getElementById("selected").innerHTML;
+			}
+			matches[i].innerHTML = "<mark id='selected'>" + matches[i].innerHTML + "</mark>";
+			matches[i].scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+		}
 	}
-	else
-	{
-		document.getElementById("chatBoxContent").lastChild.innerHTML = text;
-	}
+}
 
+function addMessage(text, from, counter, ctxTxt) {
+	GBL_chatMessages.push([text, from, counter, ctxTxt]);
+	renderChat();
+}
+
+function updateMessage(text, from, counter, ctxTxt) {
+	GBL_chatMessages[GBL_chatMessages.length - 1] = [text, from, counter, ctxTxt];
+	renderChat();
+}
+
+function renderChat() {
+	document.getElementById("chatBoxContent").innerHTML = "";
+	for (const [msg, frm, ctr, ctxTxt] of GBL_chatMessages) {
+		let msgEl = document.createElement("div");
+		msgEl.setAttribute("class", frm+"Chat chatBubble");
+
+		let txtEl = document.createElement("p");
+		txtEl.innerText = msg;
+		msgEl.appendChild(txtEl);
+
+		if (ctxTxt && frm == "user") {
+			let ctxEl = document.createElement("p");
+			ctxEl.id = "ctxEl";
+			ctxEl.innerText += ctxTxt;
+			ctxEl.onclick = function() {
+				FN_highlightContext(ctr);
+			};
+			msgEl.appendChild(ctxEl);
+		}
+
+		document.getElementById("chatBoxContent").appendChild(msgEl);
+	}
+	chatBoxContent.scrollTop = chatBoxContent.scrollHeight;
 	chatBoxBlur.style.height = chatBoxContent.offsetHeight + "px";
 	chatBoxBorder.style.height = chatBoxContent.offsetHeight + "px";
 }
 
-// chatBoxWrapper.style.display = "block";
-// addMessage('Recording1...', from="user", createNew=true)
-// addMessage('Recording2...', from="ai", createNew=true)
-// addMessage('Recording3...', from="user", createNew=true)
-// addMessage('Recording4...', from="ai", createNew=true)
-// addMessage('Recording5...', from="user", createNew=true)
-
 document.body.addEventListener('contextmenu', function(e) {	
 	if (!e.altKey) return false;
 
-	e.preventDefault();
-	let userQuery = e.target.innerText;
+	// Key Code part of Extension
+	if (GBL_aiActivated) return false;
 
-	if (!userQuery) return false;
+	e.preventDefault();
+
+	GBL_aiActivated = true;
+
+	const preciseSelect = window.getSelection().toString();
+	console.log(preciseSelect);
+
+	let userContext = preciseSelect ? preciseSelect : e.target.innerText;
+
+	if (!userContext) return false;
 
 	// Highlighting the Selected Text:
 	if (document.getElementById("selected") != null) {
-		document.getElementById("selected").parentElement.innerHTML = document.getElementById("selected").innerHTML;
+		if (e.target.getAttribute("id") != "selected") {
+			console.log(document.getElementById("selected").parentElement.getElementsByTagName("*"));
+			document.getElementById("selected").parentElement.innerHTML = document.getElementById("selected").innerHTML;
+		}
 	}
-	e.target.innerHTML = "<mark id='selected'>" + e.target.innerHTML + "</mark>";
+	if (e.target.getAttribute("id") != "selected") {
+		if (preciseSelect) {
+			console.log(e.target.getElementsByTagName("*"));
+			e.target.innerHTML = e.target.innerHTML.replace(userContext, "<mark id='selected'>"+ userContext + "</mark>");
+			console.log(e.target.getElementsByTagName("*"));
+		} else {
+			console.log(e.target.getElementsByTagName("*"));
+			e.target.innerHTML = "<mark id='selected'>" + e.target.innerHTML + "</mark>";
+			console.log(e.target.getElementsByTagName("*"));
+		}
+	}
 
+	let temp = document.getElementById("selected").parentElement.getAttribute("data-id");
+	document.getElementById("selected").parentElement.setAttribute("data-id", (temp ? (temp + "-") : "") + GBL_selectedCounter);
+
+	// Whisper and GPT Computation
+	audio(userContext, GBL_selectedCounter++);
+});
+
+function audio(userContext, counter) {
+	// Maybe delete this line afterwards and instead show the info via the mic and view buttons.
 	chatBoxWrapper.style.display = "block";
 
-	// addMessage('hello')
-	// addMessage('hi', 'ai')
-	// addMessage('whats up')
+	// To Test
+	// addMessage('Testing', "user", counter, userContext);
+	// addMessage('Testing', "ai", counter);
+	// return;
 
-	// -------
 	navigator.mediaDevices
 	.getUserMedia({ audio: true, })
 	.then((stream) => {
-		// console.log(stream);
 		let mediaRecorder = new MediaRecorder(stream);
 		mediaRecorder.start();
-		// micActivated = true;
+		GBL_micActivated = true;
+
+		let audioContext = new AudioContext();
+		let source = audioContext.createMediaStreamSource(stream);
+		let analyser = audioContext.createAnalyser();
+		source.connect(analyser);
+
+		const pcmData = new Float32Array(analyser.fftSize);
+
+		let frameCount = 0;
+		const onFrame = () => {
+			if (!GBL_micActivated) return false;
+			analyser.getFloatTimeDomainData(pcmData);
+			let sumSquares = 0.0;
+			for (const amplitude of pcmData) { sumSquares += amplitude*amplitude; }
+			// volumeMeterEl.value = Math.sqrt(sumSquares / pcmData.length);
+			let volumeMeter = Math.round(Math.sqrt(sumSquares / pcmData.length)*1000);
+			if (volumeMeter < 30) {
+				frameCount++;
+			} else {
+				frameCount = 0;
+			}
+			if (frameCount >= 50) {
+				mediaRecorder.stop();
+				stream.getTracks().forEach(t => t.stop());
+			}
+			window.requestAnimationFrame(onFrame);
+		};
+		window.requestAnimationFrame(onFrame);
+
+
+		// Visualizer canvas
+		let userChat = document.createElement('div');
+		userChat.setAttribute('class', 'userChat chatBubble');
+
+		let canvas = document.createElement('canvas');
+		let canvasCtx = canvas.getContext('2d');
+		userChat.appendChild(canvas);
+
+		if (userContext) {
+			let userCtxP = document.createElement('p');
+			userCtxP.setAttribute('id', 'ctxEl');
+			userCtxP.innerHTML = userContext;
+			userChat.appendChild(userCtxP);
+		}
+
+		document.getElementById("chatBoxContent").appendChild(userChat);
+
+		// Visualizer loop
+		function draw() {
+			requestAnimationFrame(draw);
+	
+			let bufferLength = analyser.frequencyBinCount;
+			let dataArray = new Uint8Array(bufferLength);
+
+			analyser.getByteTimeDomainData(dataArray);
+	
+			canvas.width = 220;
+			canvas.height = 20;
+	
+			canvasCtx.fillStyle = '#00402E';
+			canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+	
+			canvasCtx.lineWidth = 2;
+			canvasCtx.strokeStyle = '#00FFB9';
+	
+			canvasCtx.beginPath();
+	
+			let sliceWidth = canvas.width * 1.0 / bufferLength;
+			let x = 0;
+
+			for (let i = 0; i < bufferLength; i++) {
+				let v = dataArray[i] / 128.0;
+				let y = v * canvas.height / 2;
+	
+				if (i === 0) {
+					canvasCtx.moveTo(x, y);
+				} else {
+					canvasCtx.lineTo(x, y);
+				}
+	
+				x += sliceWidth;
+			}
+			canvasCtx.stroke();
+		}
+	
+		draw();
+
+		chatBoxContent.scrollTop = chatBoxContent.scrollHeight;
+		chatBoxBlur.style.height = chatBoxContent.offsetHeight + "px";
+		chatBoxBorder.style.height = chatBoxContent.offsetHeight + "px";
 
 		// Displaying
-		addMessage('Recording...', from="user", createNew=true)
-		// userChatUI();
-		// updateTXT("Recording");
-		// chatBox.scrollTop = chatBox.scrollHeight;
-		// console.log(chatBox.offsetHeight);
-		// chatBoxBlur.style.height = chatBox.offsetHeight;
-
 		mediaRecorder.ondataavailable = e => {
-			addMessage("Processing...")
+			GBL_micActivated = false;
+
+			addMessage("Processing...", "user", counter, userContext);
 
 			const formData = new FormData();
 			formData.append('audio', e.data, 'recording.webm');
-			fetch('https://e6ce-2604-3d08-6080-5500-8b6c-a62c-b485-c757.ngrok-free.app/audio', {
+			fetch('https://9074-2604-3d08-6080-5500-e3f6-9e9-bb06-8b5a.ngrok-free.app/audio', {
 				method: 'POST',
 				body: formData,
 			})
 			.then((response) => (response.json()))
 			.then((dataStr) => {
-				let userAction = dataStr.text;
+				let userQuery = dataStr.text;
 
-				addMessage(userAction)
+				updateMessage(userQuery, "user", counter, userContext);
 
-				addMessage("Processing", from="ai", createNew=true)
+				addMessage("Processing", "ai", counter);
 
 				// GPT
 				let formDataGPT = new FormData();
-				formDataGPT.append('string1', userAction);
-				if (userQuery) {
-					formDataGPT.append('string2', userQuery);
-				}
+				formDataGPT.append('string1', userQuery);
+				if (userContext) formDataGPT.append('string2', userContext);
 				
-				fetch('https://e6ce-2604-3d08-6080-5500-8b6c-a62c-b485-c757.ngrok-free.app/gpt', {
+				fetch('https://9074-2604-3d08-6080-5500-e3f6-9e9-bb06-8b5a.ngrok-free.app/gpt', {
 					method: 'POST',
 					body: formDataGPT,
 				})
 				.then((response) => (response.json()))
 				.then((dataStr) => {
-					addMessage(dataStr.text);
-					// micActivated = false;
+
+					updateMessage(dataStr.text, "ai", counter);
+
+					GBL_aiActivated = false;
 				})
 				.catch((err) => console.log(err));
 			})
 			.catch((err) => console.log(err));
 		};
-
-		setTimeout(() => {
-			mediaRecorder.stop();
-			stream.getTracks().forEach(t => t.stop());
-		}, 3000);
 	})
 	.catch((err) => console.log(err))
-});
+}
