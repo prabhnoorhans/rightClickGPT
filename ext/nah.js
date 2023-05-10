@@ -16,7 +16,7 @@ if ("paintWorklet" in CSS) {
 // Contains the buttons and chatBox
 const chatWrapper = document.createElement("div");
 chatWrapper.setAttribute("id", "chatWrapper");
-// chatWrapper.style.display = "block";
+chatWrapper.style.display = "block";
 
 const chatBtnsWrapper = document.createElement("div");
 chatBtnsWrapper.setAttribute("id", "chatBtnsWrapper");
@@ -51,7 +51,6 @@ chatWrapper.appendChild(chatBtnsWrapper);
 
 const chatBoxWrapper = document.createElement("div");
 chatBoxWrapper.setAttribute("id", "chatBoxWrapper");
-// chatBoxWrapper.style.display = "none";
 
 // Blur Background
 const chatBoxBlur = document.createElement("div");
@@ -71,34 +70,38 @@ chatWrapper.appendChild(chatBoxWrapper);
 
 document.body.appendChild(chatWrapper);
 
-function FN_highlightContext(txt) {
+function FN_highlightContext(num, txt) {
 	const matches = document.querySelectorAll('[data-id]');
 	for (let i = 0; i < matches.length; i++) {
 		let temp = matches[i].getAttribute("data-id");
 		let keyTemp = temp.split('-');
-		if (keyTemp.find(e => e == txt)) {
+		if (keyTemp.find(e => e == num)) {
 			if (document.getElementById("selected") != null) {
-				document.getElementById("selected").parentElement.innerHTML = document.getElementById("selected").innerHTML;
+				document.getElementById("selected").parentElement.innerHTML = document.getElementById("selected").parentElement.innerHTML.replace("<mark id=\"selected\">", "").replace("</mark>", "");
 			}
-			matches[i].innerHTML = "<mark id='selected'>" + matches[i].innerHTML + "</mark>";
+			if (txt === matches[i].innerText) {
+				matches[i].innerHTML = "<mark id='selected'>" + matches[i].innerHTML + "</mark>";
+			} else {
+				matches[i].innerHTML = matches[i].innerHTML.replace(txt, "<mark id='selected'>"+ txt + "</mark>");matches[i].innerHTML.replace(txt, "<mark id='selected'>"+ txt + "</mark>");
+			}
 			matches[i].scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
 		}
 	}
 }
 
-function addMessage(text, from, counter, ctxTxt) {
-	GBL_chatMessages.push([text, from, counter, ctxTxt]);
+function addMessage(text, from, counter, ctxTxt, preciseHTML) {
+	GBL_chatMessages.push([text, from, counter, ctxTxt, preciseHTML]);
 	renderChat();
 }
 
-function updateMessage(text, from, counter, ctxTxt) {
-	GBL_chatMessages[GBL_chatMessages.length - 1] = [text, from, counter, ctxTxt];
+function updateMessage(text, from, counter, ctxTxt, preciseHTML) {
+	GBL_chatMessages[GBL_chatMessages.length - 1] = [text, from, counter, ctxTxt, preciseHTML];
 	renderChat();
 }
 
 function renderChat() {
 	document.getElementById("chatBoxContent").innerHTML = "";
-	for (const [msg, frm, ctr, ctxTxt] of GBL_chatMessages) {
+	for (const [msg, frm, ctr, ctxTxt, preciseHTML] of GBL_chatMessages) {
 		let msgEl = document.createElement("div");
 		msgEl.setAttribute("class", frm+"Chat chatBubble");
 
@@ -111,7 +114,7 @@ function renderChat() {
 			ctxEl.id = "ctxEl";
 			ctxEl.innerText += ctxTxt;
 			ctxEl.onclick = function() {
-				FN_highlightContext(ctr);
+				FN_highlightContext(ctr, preciseHTML ? preciseHTML : ctxTxt);
 			};
 			msgEl.appendChild(ctxEl);
 		}
@@ -127,14 +130,34 @@ document.body.addEventListener('contextmenu', function(e) {
 	if (!e.altKey) return false;
 
 	// Key Code part of Extension
-	if (GBL_aiActivated) return false;
+	// if (GBL_aiActivated) return false;
 
 	e.preventDefault();
 
 	GBL_aiActivated = true;
 
 	const preciseSelect = window.getSelection().toString();
-	console.log(preciseSelect);
+
+	let preciseHTML = "";
+	if (typeof window.getSelection != "undefined") {
+		var sel = window.getSelection();
+		if (sel.rangeCount) {
+			var container = document.createElement("div");
+			for (var i = 0, len = sel.rangeCount; i < len; ++i) {
+				container.appendChild(sel.getRangeAt(i).cloneContents());
+			}
+			const te = e.target.parentElement.parentElement;
+			console.log(te);
+			console.log(container.innerHTML);
+			console.log(te.includes(container.innerHTML));
+			preciseHTML = container.innerHTML;
+		}
+	} else if (typeof document.selection != "undefined") {
+		if (document.selection.type == "Text") {
+			preciseHTML = document.selection.createRange().htmlText;
+		}
+	}
+	console.log(preciseHTML);
 
 	let userContext = preciseSelect ? preciseSelect : e.target.innerText;
 
@@ -143,19 +166,15 @@ document.body.addEventListener('contextmenu', function(e) {
 	// Highlighting the Selected Text:
 	if (document.getElementById("selected") != null) {
 		if (e.target.getAttribute("id") != "selected") {
-			console.log(document.getElementById("selected").parentElement.getElementsByTagName("*"));
-			document.getElementById("selected").parentElement.innerHTML = document.getElementById("selected").innerHTML;
+			document.getElementById("selected").parentElement.innerHTML = document.getElementById("selected").parentElement.innerHTML.replace("<mark id=\"selected\">", "").replace("</mark>", "");
 		}
 	}
+
 	if (e.target.getAttribute("id") != "selected") {
-		if (preciseSelect) {
-			console.log(e.target.getElementsByTagName("*"));
-			e.target.innerHTML = e.target.innerHTML.replace(userContext, "<mark id='selected'>"+ userContext + "</mark>");
-			console.log(e.target.getElementsByTagName("*"));
+		if (preciseSelect != "") {
+			e.target.innerHTML = e.target.innerHTML.replace(preciseHTML, "<mark id='selected'>" + preciseHTML + "</mark>");
 		} else {
-			console.log(e.target.getElementsByTagName("*"));
 			e.target.innerHTML = "<mark id='selected'>" + e.target.innerHTML + "</mark>";
-			console.log(e.target.getElementsByTagName("*"));
 		}
 	}
 
@@ -163,17 +182,17 @@ document.body.addEventListener('contextmenu', function(e) {
 	document.getElementById("selected").parentElement.setAttribute("data-id", (temp ? (temp + "-") : "") + GBL_selectedCounter);
 
 	// Whisper and GPT Computation
-	audio(userContext, GBL_selectedCounter++);
+	audio(userContext, preciseHTML, GBL_selectedCounter++);
 });
 
-function audio(userContext, counter) {
+function audio(userContext, preciseHTML, counter) {
 	// Maybe delete this line afterwards and instead show the info via the mic and view buttons.
 	chatBoxWrapper.style.display = "block";
 
 	// To Test
-	// addMessage('Testing', "user", counter, userContext);
-	// addMessage('Testing', "ai", counter);
-	// return;
+	addMessage('[Testing]', "user", counter, userContext, preciseHTML);
+	addMessage('[Testing]', "ai", counter);
+	return;
 
 	navigator.mediaDevices
 	.getUserMedia({ audio: true, })
@@ -195,7 +214,6 @@ function audio(userContext, counter) {
 			analyser.getFloatTimeDomainData(pcmData);
 			let sumSquares = 0.0;
 			for (const amplitude of pcmData) { sumSquares += amplitude*amplitude; }
-			// volumeMeterEl.value = Math.sqrt(sumSquares / pcmData.length);
 			let volumeMeter = Math.round(Math.sqrt(sumSquares / pcmData.length)*1000);
 			if (volumeMeter < 30) {
 				frameCount++;
