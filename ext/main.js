@@ -4,7 +4,6 @@ document.addEventListener("keydown", function(e) {
 	}
 })
 
-let GBL_selectedCounter = 0;
 let GBL_aiActivated = false;
 let GBL_micActivated = false;
 let GBL_chatMessages= [];
@@ -16,7 +15,7 @@ if ("paintWorklet" in CSS) {
 // Contains the buttons and chatBox
 const chatWrapper = document.createElement("div");
 chatWrapper.setAttribute("id", "chatWrapper");
-chatWrapper.style.display = "block";
+chatWrapper.style.display = "none";
 
 const chatBtnsWrapper = document.createElement("div");
 chatBtnsWrapper.setAttribute("id", "chatBtnsWrapper");
@@ -70,57 +69,45 @@ chatWrapper.appendChild(chatBoxWrapper);
 
 document.body.appendChild(chatWrapper);
 
-function FN_highlightContext(num, txt) {
-	const matches = document.querySelectorAll('[data-id]');
-	for (let i = 0; i < matches.length; i++) {
-		let temp = matches[i].getAttribute("data-id");
-		let keyTemp = temp.split('-');
-		if (keyTemp.find(e => e == num)) {
-			if (document.getElementById("selected") != null) {
-				document.getElementById("selected").parentElement.innerHTML = document.getElementById("selected").parentElement.innerHTML.replace("<mark id=\"selected\">", "").replace("</mark>", "");
-			}
-			if (txt === matches[i].innerText) {
-				matches[i].innerHTML = "<mark id='selected'>" + matches[i].innerHTML + "</mark>";
-			} else {
-				matches[i].innerHTML = matches[i].innerHTML.replace(txt, "<mark id='selected'>"+ txt + "</mark>");matches[i].innerHTML.replace(txt, "<mark id='selected'>"+ txt + "</mark>");
-			}
-			matches[i].scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
-		}
-	}
-}
-
-function addMessage(text, from, counter, ctxTxt, preciseHTML) {
-	GBL_chatMessages.push([text, from, counter, ctxTxt, preciseHTML]);
+function addMessage(query, from, context) {
+	GBL_chatMessages.push([query, from, context]);
 	renderChat();
 }
 
-function updateMessage(text, from, counter, ctxTxt, preciseHTML) {
-	GBL_chatMessages[GBL_chatMessages.length - 1] = [text, from, counter, ctxTxt, preciseHTML];
+function updateMessage(query, from, context) {
+	GBL_chatMessages[GBL_chatMessages.length - 1] = [query, from, context];
 	renderChat();
 }
 
 function renderChat() {
 	document.getElementById("chatBoxContent").innerHTML = "";
-	for (const [msg, frm, ctr, ctxTxt, preciseHTML] of GBL_chatMessages) {
+	for (const [query, from, context] of GBL_chatMessages) {
 		let msgEl = document.createElement("div");
-		msgEl.setAttribute("class", frm+"Chat chatBubble");
+		msgEl.setAttribute("class", from + "Chat chatBubble");
 
-		let txtEl = document.createElement("p");
-		txtEl.innerText = msg;
-		msgEl.appendChild(txtEl);
+		let queryEl = document.createElement("p");
+		queryEl.innerText = query;
+		msgEl.appendChild(queryEl);
 
-		if (ctxTxt && frm == "user") {
-			let ctxEl = document.createElement("p");
-			ctxEl.id = "ctxEl";
-			ctxEl.innerText += ctxTxt;
-			ctxEl.onclick = function() {
-				FN_highlightContext(ctr, preciseHTML ? preciseHTML : ctxTxt);
+		if (context && from == "user") {
+			let contextEl = document.createElement("p");
+			contextEl.id = "ctxEl";
+			contextEl.className = "hide";
+			let temp = context.replace(/(\r\n|\n|\r)/gm, "");
+			contextEl.innerText += temp;
+			contextEl.onclick = function() {
+				contextEl.className == "hide" ? contextEl.className = "show" : contextEl.className = "hide";
+				dynamicHeight();
 			};
-			msgEl.appendChild(ctxEl);
+			msgEl.appendChild(contextEl);
 		}
 
 		document.getElementById("chatBoxContent").appendChild(msgEl);
 	}
+	dynamicHeight();
+}
+
+function dynamicHeight() {
 	chatBoxContent.scrollTop = chatBoxContent.scrollHeight;
 	chatBoxBlur.style.height = chatBoxContent.offsetHeight + "px";
 	chatBoxBorder.style.height = chatBoxContent.offsetHeight + "px";
@@ -130,7 +117,7 @@ document.body.addEventListener('contextmenu', function(e) {
 	if (!e.altKey) return false;
 
 	// Key Code part of Extension
-	// if (GBL_aiActivated) return false;
+	if (GBL_aiActivated) return false;
 
 	e.preventDefault();
 
@@ -138,61 +125,23 @@ document.body.addEventListener('contextmenu', function(e) {
 
 	const preciseSelect = window.getSelection().toString();
 
-	let preciseHTML = "";
-	if (typeof window.getSelection != "undefined") {
-		var sel = window.getSelection();
-		if (sel.rangeCount) {
-			var container = document.createElement("div");
-			for (var i = 0, len = sel.rangeCount; i < len; ++i) {
-				container.appendChild(sel.getRangeAt(i).cloneContents());
-			}
-			const te = e.target.parentElement.parentElement;
-			console.log(te);
-			console.log(container.innerHTML);
-			console.log(te.includes(container.innerHTML));
-			preciseHTML = container.innerHTML;
-		}
-	} else if (typeof document.selection != "undefined") {
-		if (document.selection.type == "Text") {
-			preciseHTML = document.selection.createRange().htmlText;
-		}
-	}
-	console.log(preciseHTML);
-
 	let userContext = preciseSelect ? preciseSelect : e.target.innerText;
 
 	if (!userContext) return false;
 
-	// Highlighting the Selected Text:
-	if (document.getElementById("selected") != null) {
-		if (e.target.getAttribute("id") != "selected") {
-			document.getElementById("selected").parentElement.innerHTML = document.getElementById("selected").parentElement.innerHTML.replace("<mark id=\"selected\">", "").replace("</mark>", "");
-		}
-	}
-
-	if (e.target.getAttribute("id") != "selected") {
-		if (preciseSelect != "") {
-			e.target.innerHTML = e.target.innerHTML.replace(preciseHTML, "<mark id='selected'>" + preciseHTML + "</mark>");
-		} else {
-			e.target.innerHTML = "<mark id='selected'>" + e.target.innerHTML + "</mark>";
-		}
-	}
-
-	let temp = document.getElementById("selected").parentElement.getAttribute("data-id");
-	document.getElementById("selected").parentElement.setAttribute("data-id", (temp ? (temp + "-") : "") + GBL_selectedCounter);
-
 	// Whisper and GPT Computation
-	audio(userContext, preciseHTML, GBL_selectedCounter++);
+	audio(userContext);
 });
 
-function audio(userContext, preciseHTML, counter) {
+function audio(userContext) {
 	// Maybe delete this line afterwards and instead show the info via the mic and view buttons.
+	chatWrapper.style.display = "block";
 	chatBoxWrapper.style.display = "block";
 
 	// To Test
-	addMessage('[Testing]', "user", counter, userContext, preciseHTML);
-	addMessage('[Testing]', "ai", counter);
-	return;
+	// addMessage('[Testing]', "user", userContext);
+	// addMessage('[Testing]', "ai");
+	// return;
 
 	navigator.mediaDevices
 	.getUserMedia({ audio: true, })
@@ -240,6 +189,7 @@ function audio(userContext, preciseHTML, counter) {
 		if (userContext) {
 			let userCtxP = document.createElement('p');
 			userCtxP.setAttribute('id', 'ctxEl');
+			userCtxP.className = 'hide';
 			userCtxP.innerHTML = userContext;
 			userChat.appendChild(userCtxP);
 		}
@@ -255,7 +205,7 @@ function audio(userContext, preciseHTML, counter) {
 
 			analyser.getByteTimeDomainData(dataArray);
 	
-			canvas.width = 220;
+			canvas.width = 270;
 			canvas.height = 20;
 	
 			canvasCtx.fillStyle = '#00402E';
@@ -286,19 +236,17 @@ function audio(userContext, preciseHTML, counter) {
 	
 		draw();
 
-		chatBoxContent.scrollTop = chatBoxContent.scrollHeight;
-		chatBoxBlur.style.height = chatBoxContent.offsetHeight + "px";
-		chatBoxBorder.style.height = chatBoxContent.offsetHeight + "px";
+		dynamicHeight();
 
 		// Displaying
 		mediaRecorder.ondataavailable = e => {
 			GBL_micActivated = false;
 
-			addMessage("Processing...", "user", counter, userContext);
+			addMessage("Processing...", "user", userContext);
 
 			const formData = new FormData();
 			formData.append('audio', e.data, 'recording.webm');
-			fetch('https://9074-2604-3d08-6080-5500-e3f6-9e9-bb06-8b5a.ngrok-free.app/audio', {
+			fetch('https://5997-2604-3d08-6080-5500-c1ff-b0bc-6ed9-fb31.ngrok-free.app/audio', {
 				method: 'POST',
 				body: formData,
 			})
@@ -306,23 +254,23 @@ function audio(userContext, preciseHTML, counter) {
 			.then((dataStr) => {
 				let userQuery = dataStr.text;
 
-				updateMessage(userQuery, "user", counter, userContext);
+				updateMessage(userQuery, "user", userContext);
 
-				addMessage("Processing", "ai", counter);
+				addMessage("Processing", "ai");
 
 				// GPT
 				let formDataGPT = new FormData();
 				formDataGPT.append('string1', userQuery);
 				if (userContext) formDataGPT.append('string2', userContext);
 				
-				fetch('https://9074-2604-3d08-6080-5500-e3f6-9e9-bb06-8b5a.ngrok-free.app/gpt', {
+				fetch('https://5997-2604-3d08-6080-5500-c1ff-b0bc-6ed9-fb31.ngrok-free.app/gpt', {
 					method: 'POST',
 					body: formDataGPT,
 				})
 				.then((response) => (response.json()))
 				.then((dataStr) => {
 
-					updateMessage(dataStr.text, "ai", counter);
+					updateMessage(dataStr.text, "ai");
 
 					GBL_aiActivated = false;
 				})
