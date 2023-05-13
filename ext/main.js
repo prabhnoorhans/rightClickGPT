@@ -14,15 +14,15 @@ if ("paintWorklet" in CSS) {
 
 // Contains the buttons and chatBox
 const chatWrapper = document.createElement("div");
-chatWrapper.setAttribute("id", "chatWrapper");
+chatWrapper.id = "chatWrapper";
 chatWrapper.style.display = "none";
 
 const chatBtnsWrapper = document.createElement("div");
-chatBtnsWrapper.setAttribute("id", "chatBtnsWrapper");
+chatBtnsWrapper.id = "chatBtnsWrapper";
 
 // View Button
 const viewSquircle = document.createElement("div");
-viewSquircle.setAttribute("class", "squircleBtn viewBtn");
+viewSquircle.className = "squircleBtn viewBtn";
 viewSquircle.onclick = function() {
 	if (chatBoxWrapper.style.display == "block") {
 		chatBoxWrapper.style.display = "none";
@@ -37,7 +37,7 @@ chatBtnsWrapper.appendChild(viewSquircle);
 
 // Mic Button
 const micSquircle = document.createElement("div");
-micSquircle.setAttribute("class", "squircleBtn micBtn");
+micSquircle.className = "squircleBtn micBtn";
 micSquircle.onclick = function() {
 	if (GBL_aiActivated != true) audio();
 }
@@ -49,25 +49,31 @@ chatBtnsWrapper.appendChild(micSquircle);
 chatWrapper.appendChild(chatBtnsWrapper);
 
 const chatBoxWrapper = document.createElement("div");
-chatBoxWrapper.setAttribute("id", "chatBoxWrapper");
+chatBoxWrapper.id = "chatBoxWrapper";
 
 // Blur Background
 const chatBoxBlur = document.createElement("div");
-chatBoxBlur.setAttribute("id", "chatBoxBlur");
+chatBoxBlur.id = "chatBoxBlur";
 chatBoxWrapper.appendChild(chatBoxBlur);
 
 // Border
 const chatBoxBorder = document.createElement("div");
-chatBoxBorder.setAttribute("id", "chatBoxBorder");
+chatBoxBorder.id = "chatBoxBorder";
 chatBoxWrapper.appendChild(chatBoxBorder);
 
 const chatBoxContent = document.createElement("div");
-chatBoxContent.setAttribute("id", "chatBoxContent");
+chatBoxContent.id = "chatBoxContent";
 chatBoxWrapper.appendChild(chatBoxContent);
 
 chatWrapper.appendChild(chatBoxWrapper);
 
 document.body.appendChild(chatWrapper);
+
+function dynamicHeight() {
+	chatBoxContent.scrollTop = chatBoxContent.scrollHeight;
+	chatBoxBlur.style.height = chatBoxContent.offsetHeight + "px";
+	chatBoxBorder.style.height = chatBoxContent.offsetHeight + "px";
+}
 
 function addMessage(query, from, context) {
 	GBL_chatMessages.push([query, from, context]);
@@ -83,7 +89,7 @@ function renderChat() {
 	document.getElementById("chatBoxContent").innerHTML = "";
 	for (const [query, from, context] of GBL_chatMessages) {
 		let msgEl = document.createElement("div");
-		msgEl.setAttribute("class", from + "Chat chatBubble");
+		msgEl.className = from + "Chat chatBubble";
 
 		let queryEl = document.createElement("p");
 		queryEl.innerText = query;
@@ -106,32 +112,6 @@ function renderChat() {
 	}
 	dynamicHeight();
 }
-
-function dynamicHeight() {
-	chatBoxContent.scrollTop = chatBoxContent.scrollHeight;
-	chatBoxBlur.style.height = chatBoxContent.offsetHeight + "px";
-	chatBoxBorder.style.height = chatBoxContent.offsetHeight + "px";
-}
-
-document.body.addEventListener('contextmenu', function(e) {	
-	if (!e.altKey) return false;
-
-	// Key Code part of Extension
-	if (GBL_aiActivated) return false;
-
-	e.preventDefault();
-
-	GBL_aiActivated = true;
-
-	const preciseSelect = window.getSelection().toString();
-
-	let userContext = preciseSelect ? preciseSelect : e.target.innerText;
-
-	if (!userContext) return false;
-
-	// Whisper and GPT Computation
-	audio(userContext);
-});
 
 function audio(userContext) {
 	// Maybe delete this line afterwards and instead show the info via the mic and view buttons.
@@ -180,7 +160,7 @@ function audio(userContext) {
 
 		// Visualizer canvas
 		let userChat = document.createElement('div');
-		userChat.setAttribute('class', 'userChat chatBubble');
+		userChat.className = 'userChat chatBubble';
 
 		let canvas = document.createElement('canvas');
 		let canvasCtx = canvas.getContext('2d');
@@ -188,7 +168,7 @@ function audio(userContext) {
 
 		if (userContext) {
 			let userCtxP = document.createElement('p');
-			userCtxP.setAttribute('id', 'ctxEl');
+			userCtxP.id = 'ctxEl';
 			userCtxP.className = 'hide';
 			userCtxP.innerHTML = userContext;
 			userChat.appendChild(userCtxP);
@@ -199,45 +179,45 @@ function audio(userContext) {
 		// Visualizer loop
 		function draw() {
 			requestAnimationFrame(draw);
-	
+
 			let bufferLength = analyser.frequencyBinCount;
 			let dataArray = new Uint8Array(bufferLength);
 
 			analyser.getByteTimeDomainData(dataArray);
-	
+
 			canvas.width = 270;
 			canvas.height = 20;
-	
+
 			canvasCtx.fillStyle = '#00402E';
 			canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-	
+
 			canvasCtx.lineWidth = 2;
 			canvasCtx.strokeStyle = '#00FFB9';
-	
+
 			canvasCtx.beginPath();
-	
+
 			let sliceWidth = canvas.width * 1.0 / bufferLength;
 			let x = 0;
 
 			for (let i = 0; i < bufferLength; i++) {
 				let v = dataArray[i] / 128.0;
 				let y = v * canvas.height / 2;
-	
+
 				if (i === 0) {
 					canvasCtx.moveTo(x, y);
 				} else {
 					canvasCtx.lineTo(x, y);
 				}
-	
+
 				x += sliceWidth;
 			}
 			canvasCtx.stroke();
 		}
-	
+
 		draw();
 
 		dynamicHeight();
-
+		
 		// Displaying
 		mediaRecorder.ondataavailable = e => {
 			GBL_micActivated = false;
@@ -281,3 +261,23 @@ function audio(userContext) {
 	})
 	.catch((err) => console.log(err))
 }
+
+document.body.addEventListener('contextmenu', function(e) {	
+	if (!e.altKey) return false;
+
+	// Key Code part of Extension
+	if (GBL_aiActivated) return false;
+
+	e.preventDefault();
+
+	GBL_aiActivated = true;
+
+	const preciseSelect = window.getSelection().toString();
+
+	let userContext = preciseSelect ? preciseSelect : e.target.innerText;
+
+	if (!userContext) return false;
+
+	// Whisper and GPT Computation
+	audio(userContext);
+});
